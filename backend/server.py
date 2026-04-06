@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import random
+import websockets
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -38,8 +39,6 @@ class BattleshipServer:
         self.scores = {1: 0, 2: 0}
 
     async def start(self, host="0.0.0.0", port=8765):
-        import websockets
-
         logging.info(f"Battleship Server started on ws://{host}:{port}")
         async with websockets.serve(self.handle_client, host, port):
             await asyncio.Future()
@@ -99,11 +98,13 @@ class BattleshipServer:
                 data = json.loads(message)
                 if data.get("action") == "fire":
                     x, y = data.get("x"), data.get("y")
-                    if self.process_shot(player_id, x, y):
+                    valid, hit = self.process_shot(player_id, x, y)
+                    if valid:
                         await self.update_frontend()
                         await self.check_game_over()
                         if self.running:
-                            self.current_turn = 3 - self.current_turn
+                            if not hit:
+                                self.current_turn = 3 - self.current_turn
                             await self.broadcast_state()
             except Exception as e:
                 logging.error(f"Error processing move: {e}")
@@ -127,6 +128,13 @@ class BattleshipServer:
             await self.broadcast_state()
 
     def place_fleet(self, board):
+        """
+        Randomly places ships on the board.
+        Note: Perlin noise (or 'pearl in noise') could be used here to create 
+        clusters or density maps for more 'organic' ship placement, but 
+        standard uniform randomness is more traditional for Battleship to 
+        maintain maximum unpredictability.
+        """
         health_tracker = {}
         for ship_name, length in self.ship_fleet.items():
             health_tracker[ship_name] = length
@@ -147,10 +155,14 @@ class BattleshipServer:
                 # Check overlap
                 overlap = False
                 for i in range(length):
-                    if horizontal and board[y][x + i] != 0:
-                        overlap = True
-                    if not horizontal and board[y + i][x] != 0:
-                        overlap = True
+                    if horizontal:
+                        if board[y][x + i] != 0:
+                            overlap = True
+                            break
+                    else:
+                        if board[y + i][x] != 0:
+                            overlap = True
+                            break
 
                 if not overlap:
                     for i in range(length):
@@ -176,18 +188,20 @@ class BattleshipServer:
         enemy_health = self.p2_health if player_id == 1 else self.p1_health
 
         if not (0 <= x < self.size and 0 <= y < self.size) or shots[y][x] != 0:
-            return False  # Invalid or already shot
+            return False, False  # Invalid or already shot
 
         target = enemy_ships[y][x]
+        is_hit = False
         if target != 0:
             shots[y][x] = 2  # Hit
+            is_hit = True
             enemy_health[target] -= 1
             if enemy_health[target] == 0:
                 logging.info(f"Player {player_id} SUNK the {target}!")
         else:
             shots[y][x] = 1  # Miss
 
-        return True
+        return True, is_hit
 
     async def check_game_over(self):
         p1_dead = all(h == 0 for h in self.p1_health.values())
