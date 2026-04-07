@@ -36,13 +36,9 @@ jobs:
       - name: Generate documentation
         run: |
           mkdir -p docs
-          touch docs/.nojekyll
-
-          # Safely copy the logo if it exists; if not, don't crash the workflow (|| true)
+          pdoc -o docs --math --logo logo.svg backend agents
           cp frontend/favicon.svg docs/logo.svg || true
-
-          # Generate the HTML docs for the backend and agents folders
-          pdoc -o docs --logo logo.svg backend agents
+          touch docs/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
