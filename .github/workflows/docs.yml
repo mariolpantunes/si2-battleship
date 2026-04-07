@@ -35,6 +35,7 @@ jobs:
 
       - name: Generate documentation
         run: |
+          touch docs/.nojekyll
           mkdir -p docs
 
           # Safely copy the logo if it exists; if not, don't crash the workflow (|| true)
