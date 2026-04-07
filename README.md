@@ -1,85 +1,78 @@
-# <img src="frontend/favicon.svg" alt="logo" width="128" height="128" align="middle"> SI2 - Battleship AI Arena
+# <img src="frontend/favicon.svg" alt="logo" width="128" height="128" align="middle"> SI2 - Battleship
 
-A modular Battleship simulation platform with a Python-based WebSocket backend, an HTML/JS frontend for visualization, and an extensible agent system.
+SI2 - Battleship is a modular simulation platform designed for developing and testing autonomous agents in the classic game of Battleship. The system features a centralized Python-based WebSocket backend that manages game logic, a real-time web viewer for monitoring matches, and an extensible framework for implementing custom AI strategies.
 
-## Features
+The primary objective of the game is to sink all of the opponent's ships before they sink yours. Each player controls a 10x10 grid where their fleet is hidden from the opponent. Players take turns "firing" shots at specific coordinates, receiving immediate feedback on whether they hit a ship or splashed into the water, with successful hits granting an extra turn.
 
-- **Multiplayer Arena**: Two AI agents (or humans) compete in a real-time Battleship match.
-- **Single Viewer**: A dedicated frontend for observing the game state, including ship positions and shot history for both players.
-- **Infinite Game Loop**: The server automatically restarts rounds, alternating the starting player each time.
-- **Classic Mechanics**: Includes a "hit-again" rule where a successful hit grants the player another turn.
-- **Modular Agents**: Easy-to-extend `BaseBSAgent` class for implementing custom AI strategies.
-- **Dockerized Environment**: Quick setup for the backend and frontend viewer using Docker Compose.
+## Game Rules
 
-## Installation
+The simulation follows the standard rules of Battleship with a few specific implementation details:
+* **Grid Size**: 10x10.
+* **Fleet**: Each player has 5 ships: Carrier (5), Battleship (4), Cruiser (3), Submarine (3), and Destroyer (2).
+* **Turns**: Players alternate turns. If a player hits a ship, they receive an additional turn.
+* **Victory**: The game ends when one player has all their ship segments destroyed.
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/mariolpantunes/si2-battleship.git
-   cd si2-battleship
-   ```
+### Game State and Actions
+Agents receive a partial view of the world state during their turn:
+* **`my_ships`**: A 10x10 matrix representing your own board, where each cell contains the ship's name (e.g., `"Carrier"`) or `0` for empty water.
+* **`my_shots`**: A 10x10 matrix representing your history of offensive moves (0 = unknown, 1 = miss, 2 = hit).
+* **`valid_actions`**: A list of available `[x, y]` coordinates that have not been targeted yet.
 
-2. **Local environment setup (for agents)**:
-   Agents *must* run locally without Docker:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
+**Possible Action**:
+* `fire(x, y)`: Submit a coordinate to attack the opponent's board.
 
-## Usage
+## Setup
 
-### 1. Start the Arena
-The easiest way to start the backend server and the frontend viewer is using Docker Compose:
+### 1. Launch the Simulation
+Use Docker Compose to start the backend server and the frontend viewer:
 ```bash
 docker compose up
 ```
-- The **Backend** will be available at `ws://localhost:8765`.
-- The **Frontend Viewer** will be available at `http://localhost:8080`.
+* **Backend**: `ws://localhost:8765`
+* **Frontend Viewer**: `http://localhost:8080`
 
-### 2. Open the Viewer
-Open your browser and navigate to `http://localhost:8080` to watch the match unfold.
+### 2. Execute Agents
+Agents should be executed locally using a Python virtual environment:
 
-### 3. Run the Agents
-Connect two agents to the running server. You can mix and match manual and AI agents.
+```bash
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-- **Manual Control**:
-  ```bash
-  python3 agents/manual_agent.py
-  ```
-  Follow the terminal prompts to enter coordinates (e.g., `3,4`).
+# Install dependencies
+pip install -r requirements.txt
 
-- **Dummy (Random) Agent**:
-  ```bash
-  python3 agents/dummy_agent.py
-  ```
+# Run an agent (e.g., the Dummy agent)
+python agents/dummy_agent.py
+```
 
 ## Project Structure
 
-- `backend/server.py`: The core game logic and WebSocket server.
-- `frontend/`: HTML, CSS, and JavaScript for the web-based viewer.
-- `agents/`:
-    - `base_agent.py`: Abstract base class handling WebSocket communication and state parsing.
-    - `dummy_agent.py`: A simple agent that picks random valid targets.
-    - `manual_agent.py`: An agent that allows for manual player interaction via the terminal.
-- `compose.yml`: Docker Compose configuration for the full stack.
+* `backend/`: Contains `server.py`, the core game engine handling WebSockets and logic, and its `Dockerfile`.
+* `frontend/`: Contains the single viewer (HTML, CSS, JS) used to monitor the game state.
+* `agents/`: Contains the battleship agents:
+    * `base_agent.py`: The abstract base class providing the communication layer.
+    * `dummy_agent.py`: A simple automated agent that selects random targets.
+    * `manual_agent.py`: An agent allowing manual interaction via terminal input.
+* `compose.yml`: Docker Compose configuration for the backend and frontend.
 
 ## Development
 
-### Adding a New Agent
-To create a new agent, subclass `BaseBSAgent` and implement the `deliberate()` method:
+To develop a new agent, create a new class that inherits from `BaseBSAgent` and implement the `deliberate` method. For detailed API references, please refer to the [official documentation](https://mariolpantunes.github.io/si2-battleship/).
 
 ```python
 from agents.base_agent import BaseBSAgent
 
-class MyCustomAgent(BaseBSAgent):
+class MyNewAgent(BaseBSAgent):
     async def deliberate(self, my_ships, my_shots, valid_actions):
-        # my_ships: 10x10 grid with your ship names
-        # my_shots: 10x10 grid with your shot history (0=unknown, 1=miss, 2=hit)
-        # valid_actions: list of [x, y] coordinates you haven't shot at yet
-        
-        # Return a list/tuple of [x, y] representing the target coordinate
+        # Implement your strategy here
+        # Return a coordinate [x, y] from valid_actions
         return valid_actions[0]
+
+if __name__ == "__main__":
+    import asyncio
+    agent = MyNewAgent()
+    asyncio.run(agent.run())
 ```
 
 ## Authors
